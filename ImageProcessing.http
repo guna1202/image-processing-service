@@ -1,0 +1,9 @@
+@ImageProcessing_HostAddress = https://localhost:7250
+
+GET {{ImageProcessing_HostAddress}}/weatherforecast
+Accept: application/json
+
+GET https://localhost:7250/weatherforecast
+Accept: application/json
+
+###
