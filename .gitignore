@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/ImageProcessing/CopilotIndices/18.0.988.22099
+/bin/Debug/net10.0
+/obj
+/.vs
+*.user
