@@ -1,4 +1,5 @@
 ﻿using ImageProcessing.DTOs;
+using ImageProcessing.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,12 @@ namespace ImageProcessing.Controllers
     public class AuthController : ControllerBase
     {
         private static readonly Dictionary<string, string> Users = new();
+        private readonly IJwtTokenService _jwtTokenService;
+
+        public AuthController(IJwtTokenService jwtTokenService)
+        {
+            _jwtTokenService = jwtTokenService;
+        }
 
         [HttpGet("ping")]
         public IActionResult Ping()
@@ -26,9 +33,12 @@ namespace ImageProcessing.Controllers
 
             Users[request.Username] = request.Password;
 
+            var token = _jwtTokenService.GenerateToken(request.Username, "User");
+
             return Ok(new AuthResponse
             {
-                Message = "User registered successfully"
+                Message = "User registered successfully",
+                Token = token
             });
         }
 
@@ -51,9 +61,12 @@ namespace ImageProcessing.Controllers
                 });
             }
 
+            var token = _jwtTokenService.GenerateToken(request.Username, "User");
+
             return Ok(new AuthResponse
             {
-                Message = "User logged in successfully!"
+                Message = "User logged in successfully!",
+                Token = token
             });
         }
     }
