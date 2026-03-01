@@ -1,4 +1,5 @@
 ﻿using ImageProcessing.Data;
+using ImageProcessing.DTOs;
 using ImageProcessing.Entities;
 using ImageProcessing.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -127,11 +128,11 @@ namespace ImageProcessing.Controllers
 
             await _storageService.DeleteFileAsync(image.StorageKey);
 
-            // If you stored thumbnail, delete it too
-            //if (!string.IsNullOrEmpty(image.ThumbnailStorageKey))
-            //{
-            //    await _storageService.DeleteFileAsync(image.ThumbnailStorageKey);
-            //}
+            //Delete thumbnail if exists
+            if (!string.IsNullOrEmpty(image.ThumbnailStorageKey))
+            {
+                await _storageService.DeleteFileAsync(image.ThumbnailStorageKey);
+            }
 
             _context.Images.Remove(image);
             await _context.SaveChangesAsync();
@@ -175,6 +176,50 @@ namespace ImageProcessing.Controllers
                 image.ContentType ?? "image/jpeg",
                 enableRangeProcessing: true
             );
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetImages(int page = 1, int pageSize = 10)
+        {
+            if (page <= 0)
+                return BadRequest("Page must be greater than 0.");
+
+            if (pageSize <= 0 || pageSize > 50)
+                return BadRequest("PageSize must be between 1 and 50.");
+
+            var username = User.Identity?.Name;
+
+            var query = _context.Images
+                .Where(x => x.UploadedBy == username)
+                .OrderByDescending(x => x.UploadedAt);
+
+            var totalCount = await query.CountAsync();
+
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var images = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new ImageListItemDto
+                {
+                    Id = x.Id,
+                    OriginalFileName = x.OriginalFileName,
+                    ThumbnailUrl = x.ThumbnailUrl ?? "",
+                    UploadedAt = x.UploadedAt
+                })
+                .ToListAsync();
+
+            var response = new PaginatedResponse<ImageListItemDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                Items = images
+            };
+
+            return Ok(response);
         }
     }
 }
