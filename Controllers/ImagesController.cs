@@ -104,5 +104,34 @@ namespace ImageProcessing.Controllers
 
             return File(fileStream, image.ContentType);
         }
+
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteImage(Guid id)
+        {
+            var username = User.Identity?.Name;
+
+            var image = await _context.Images
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (image == null)
+                return NotFound("Image not found.");
+
+            if (image.UploadedBy != username)
+                return Forbid();
+
+            await _storageService.DeleteFileAsync(image.StorageKey);
+
+            // If you stored thumbnail, delete it too
+            //if (!string.IsNullOrEmpty(image.ThumbnailStorageKey))
+            //{
+            //    await _storageService.DeleteFileAsync(image.ThumbnailStorageKey);
+            //}
+
+            _context.Images.Remove(image);
+            await _context.SaveChangesAsync();
+
+            return Ok("Image deleted successfully.");
+        }
     }
 }
