@@ -3,6 +3,7 @@ using ImageProcessing.Entities;
 using ImageProcessing.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ImageProcessing.Controllers
 {
@@ -47,6 +48,37 @@ namespace ImageProcessing.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(image);
+        }
+
+        [Authorize]
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetImage(Guid id)
+        {
+            var username = User.Identity?.Name;
+
+            var image = await _context.Images
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (image == null)
+                return NotFound("Image not found.");
+
+            // Owner validation (important)
+            if (image.UploadedBy != username)
+                return Forbid();
+
+            var uploadsFolder = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "Uploads"
+            );
+
+            var filePath = Path.Combine(uploadsFolder, image.StoredFileName);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found on disk.");
+
+            var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+            return File(fileStream, image.ContentType);
         }
     }
 }
