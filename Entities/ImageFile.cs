@@ -20,6 +20,12 @@ namespace ImageProcessing.Entities
 
         public string? Url { get; set; }
 
+        public string? ThumbnailFileName { get; set; }
+
+        public string? ThumbnailStorageKey { get; set; }
+
+        public string? ThumbnailUrl { get; set; }
+
         public long FileSize { get; set; }
 
         public string? ContentType { get; set; }

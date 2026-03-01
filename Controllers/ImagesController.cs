@@ -63,6 +63,11 @@ namespace ImageProcessing.Controllers
                 StorageProvider = "Local",
                 StorageKey = result.StorageKey,
                 Url = result.Url,
+
+                ThumbnailFileName = result.ThumbnailFileName,
+                ThumbnailStorageKey = result.ThumbnailFileName,
+                ThumbnailUrl = result.ThumbnailUrl,
+
                 FileSize = file.Length,
                 ContentType = file.ContentType,
                 UploadedBy = username
