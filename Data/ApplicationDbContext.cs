@@ -11,5 +11,6 @@ namespace ImageProcessing.Data
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<ImageFile> Images { get; set; }
     }
 }
