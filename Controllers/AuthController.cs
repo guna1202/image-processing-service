@@ -1,7 +1,10 @@
-﻿using ImageProcessing.DTOs;
+﻿using ImageProcessing.Data;
+using ImageProcessing.DTOs;
+using ImageProcessing.Entities;
 using ImageProcessing.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ImageProcessing.Controllers
 {
@@ -9,11 +12,13 @@ namespace ImageProcessing.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private static readonly Dictionary<string, string> Users = new();
+        //private static readonly Dictionary<string, string> Users = new();
+        private readonly ApplicationDbContext _context;
         private readonly IJwtTokenService _jwtTokenService;
 
-        public AuthController(IJwtTokenService jwtTokenService)
+        public AuthController(ApplicationDbContext context, IJwtTokenService jwtTokenService)
         {
+            _context = context;
             _jwtTokenService = jwtTokenService;
         }
 
@@ -24,48 +29,71 @@ namespace ImageProcessing.Controllers
         }
 
         [HttpPost("register")]
-        public IActionResult Register(RegisterRequest request)
+        public async Task<IActionResult> Register(RegisterRequest request)
         {
-            if (Users.ContainsKey(request.Username))
+            if (string.IsNullOrWhiteSpace(request.Username) ||
+                string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest("User already exists");
+                return BadRequest(new AuthResponse
+                {
+                    Message = "Username and password are required."
+                });
             }
 
-            Users[request.Username] = request.Password;
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == request.Username);
 
-            var token = _jwtTokenService.GenerateToken(request.Username, "User");
+            if (existingUser != null)
+            {
+                return BadRequest(new AuthResponse
+                {
+                    Message = "User already exists."
+                });
+            }
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = request.Username,
+                PasswordHash = passwordHash,
+                Role = "User",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var token = _jwtTokenService.GenerateToken(user.Username, user.Role);
 
             return Ok(new AuthResponse
             {
-                Message = "User registered successfully",
+                Message = "User registered successfully.",
                 Token = token
             });
         }
 
         [HttpPost("login")]
-        public IActionResult Login(LoginRequest request)
+        public async Task<IActionResult> Login(LoginRequest request)
         {
-            if (!Users.ContainsKey(request.Username))
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == request.Username);
+
+            if (user == null ||
+                !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 return Unauthorized(new AuthResponse
                 {
-                    Message = "User not found"
+                    Message = "Invalid username or password."
                 });
             }
 
-            if (Users[request.Username] != request.Password)
-            {
-                return Unauthorized(new AuthResponse
-                {
-                    Message = "Invalid username or password"
-                });
-            }
-
-            var token = _jwtTokenService.GenerateToken(request.Username, "User");
+            var token = _jwtTokenService.GenerateToken(user.Username, user.Role);
 
             return Ok(new AuthResponse
             {
-                Message = "User logged in successfully!",
+                Message = "User logged in successfully.",
                 Token = token
             });
         }
