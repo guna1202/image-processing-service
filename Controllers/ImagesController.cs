@@ -14,11 +14,13 @@ namespace ImageProcessing.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IFileStorageService _storageService;
+        private readonly IConfiguration _configuration;
 
-        public ImagesController(ApplicationDbContext context, IFileStorageService storageService)
+        public ImagesController(ApplicationDbContext context, IFileStorageService storageService, IConfiguration configuration)
         {
             _context = context;
             _storageService = storageService;
+            _configuration = configuration;
         }
 
         [HttpPost("upload")]
@@ -26,6 +28,28 @@ namespace ImageProcessing.Controllers
         {
             if (file == null || file.Length == 0)
                 return BadRequest("Invalid file.");
+
+            var maxFileSizeMB = _configuration.GetValue<int>("FileUpload:MaxFileSizeMB");
+            var maxBytes = maxFileSizeMB * 1024 * 1024;
+
+            if (file.Length > maxBytes)
+                return BadRequest($"File size exceeds {maxFileSizeMB} MB limit.");
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var extension = Path.GetExtension(file.FileName).ToLower();
+
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest("Unsupported file type.");
+
+            var allowedContentTypes = new[]
+            {
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            };
+
+            if (!allowedContentTypes.Contains(file.ContentType))
+                return BadRequest("Invalid content type.");
 
             var result = await _storageService.SaveImageAsync(file);
 
