@@ -138,5 +138,43 @@ namespace ImageProcessing.Controllers
 
             return Ok("Image deleted successfully.");
         }
+
+        [Authorize]
+        [HttpGet("{id}/thumbnail")]
+        public async Task<IActionResult> GetThumbnail(Guid id)
+        {
+            var username = User.Identity?.Name;
+
+            var image = await _context.Images
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (image == null)
+                return NotFound("Image not found.");
+
+            if (image.UploadedBy != username)
+                return Forbid();
+
+            if (string.IsNullOrEmpty(image.ThumbnailStorageKey))
+                return NotFound("Thumbnail not available.");
+
+            var uploadsFolder = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "Uploads"
+            );
+
+            var filePath = Path.Combine(uploadsFolder, image.ThumbnailStorageKey);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("Thumbnail file missing.");
+
+            // Add caching headers (important)
+            Response.Headers["Cache-Control"] = "public,max-age=86400";
+
+            return PhysicalFile(
+                filePath,
+                image.ContentType ?? "image/jpeg",
+                enableRangeProcessing: true
+            );
+        }
     }
 }
