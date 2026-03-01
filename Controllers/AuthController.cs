@@ -2,9 +2,9 @@
 using ImageProcessing.DTOs;
 using ImageProcessing.Entities;
 using ImageProcessing.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ImageProcessing.Controllers
 {
@@ -12,7 +12,6 @@ namespace ImageProcessing.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        //private static readonly Dictionary<string, string> Users = new();
         private readonly ApplicationDbContext _context;
         private readonly IJwtTokenService _jwtTokenService;
 
@@ -95,6 +94,19 @@ namespace ImageProcessing.Controllers
             {
                 Message = "User logged in successfully.",
                 Token = token
+            });
+        }
+
+        [Authorize]
+        [HttpGet("me")]
+        public IActionResult GetCurrentUser()
+        {
+            var username = User.Identity?.Name;
+
+            return Ok(new
+            {
+                Message = "Authenticated successfully",
+                Username = username
             });
         }
     }
