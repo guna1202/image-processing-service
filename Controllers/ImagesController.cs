@@ -16,12 +16,14 @@ namespace ImageProcessing.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IFileStorageService _storageService;
         private readonly IConfiguration _configuration;
+        private readonly IImageTransformService _imageTransformService;
 
-        public ImagesController(ApplicationDbContext context, IFileStorageService storageService, IConfiguration configuration)
+        public ImagesController(ApplicationDbContext context, IFileStorageService storageService, IConfiguration configuration, IImageTransformService imageTransformService)
         {
             _context = context;
             _storageService = storageService;
             _configuration = configuration;
+            _imageTransformService = imageTransformService;
         }
 
         [HttpPost("upload")]
@@ -205,7 +207,9 @@ namespace ImageProcessing.Controllers
                 {
                     Id = x.Id,
                     OriginalFileName = x.OriginalFileName,
-                    ThumbnailUrl = x.ThumbnailUrl ?? "",
+                    ThumbnailUrl = x.ThumbnailStorageKey != null
+                        ? $"/api/images/{x.Id}/thumbnail"
+                        : $"/api/images/{x.Id}",
                     UploadedAt = x.UploadedAt
                 })
                 .ToListAsync();
@@ -220,6 +224,64 @@ namespace ImageProcessing.Controllers
             };
 
             return Ok(response);
+        }
+
+        [Authorize]
+        [HttpGet("{id}/transform")]
+        public async Task<IActionResult> TransformImage(Guid id, [FromQuery] ImageTransformOptions options)
+        {
+            var username = User.Identity?.Name;
+
+            var image = await _context.Images
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (image == null)
+                return NotFound("Image not found");
+
+            if (image.UploadedBy != username)
+                return Forbid();
+
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+
+            var filePath = Path.Combine(uploadsFolder, image.StoredFileName);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound("File not found");
+
+            var stream = await _imageTransformService.TransformAsync(filePath, options);
+
+            var contentType = options.Format?.ToLower()
+            switch
+            {
+                "png" => "image/png",
+                "webp" => "image/webp",
+                _ => "image/jpeg"
+            };
+
+            return File(stream, contentType);
+        }
+
+        [HttpGet("capabilities")]
+        public IActionResult GetCapabilities()
+        {
+            return Ok(new
+            {
+                formats = new[]
+                {
+                    "jpeg",
+                    "png",
+                    "webp"
+                },
+                transformations = new[]
+                {
+                    "resize",
+                    "crop",
+                    "rotate",
+                    "flip",
+                    "grayscale",
+                    "compress"
+                }
+            });
         }
     }
 }

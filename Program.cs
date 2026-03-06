@@ -86,6 +86,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IImageTransformService, ImageTransformService>();
 
 var app = builder.Build();
 
