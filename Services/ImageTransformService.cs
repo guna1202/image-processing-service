@@ -63,5 +63,19 @@ namespace ImageProcessing.Services
                 }
             });
         }
+
+        public string GenerateCacheKey(Guid imageId, ImageTransformOptions options)
+        {
+            var rawKey =
+                $"{imageId}_{options.Width}_{options.Height}_{options.Rotate}_{options.Grayscale}_{options.Flip}_{options.Format}_{options.Quality}";
+
+            using var sha = System.Security.Cryptography.SHA256.Create();
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(rawKey);
+
+            var hash = sha.ComputeHash(bytes);
+
+            return Convert.ToHexString(hash).ToLower();
+        }
     }
 }

@@ -242,21 +242,38 @@ namespace ImageProcessing.Controllers
                 return Forbid();
 
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
-
             var filePath = Path.Combine(uploadsFolder, image.StoredFileName);
 
             if (!System.IO.File.Exists(filePath))
                 return NotFound("File not found");
 
-            var stream = await _imageTransformService.TransformAsync(filePath, options);
+            var cacheFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", "cache");
+            Directory.CreateDirectory(cacheFolder);
 
-            var contentType = options.Format?.ToLower()
-            switch
+            var cacheKey = _imageTransformService.GenerateCacheKey(id, options);
+            var extension = options.Format ?? "jpg";
+            var cacheFilePath = Path.Combine(cacheFolder, $"{cacheKey}.{extension}");
+
+            var contentType = options.Format?.ToLower() switch
             {
                 "png" => "image/png",
                 "webp" => "image/webp",
                 _ => "image/jpeg"
             };
+
+            if (System.IO.File.Exists(cacheFilePath))
+            {
+                return File(System.IO.File.OpenRead(cacheFilePath), contentType);
+            }
+
+            var stream = await _imageTransformService.TransformAsync(filePath, options);
+
+            using (var fileStream = new FileStream(cacheFilePath, FileMode.Create))
+            {
+                await stream.CopyToAsync(fileStream);
+            }
+
+            stream.Position = 0;
 
             return File(stream, contentType);
         }
