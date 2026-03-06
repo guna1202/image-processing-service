@@ -8,10 +8,11 @@ namespace ImageProcessing.DTOs
         public int? Width { get; set; }
         [Range(1, 4000)]
         public int? Height { get; set; }
+        public bool Crop { get; set; }
         public int? Rotate { get; set; }
         public bool Grayscale { get; set; }
         public bool Flip { get; set; }
-        [Range(1, 100)]
+        [Range(50, 100)]
         public int? Quality { get; set; }
         public string? Format { get; set; }
     }

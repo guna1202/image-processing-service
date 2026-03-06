@@ -2,7 +2,10 @@
 using ImageProcessing.DTOs;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ImageProcessing.Services
 {
@@ -18,18 +21,28 @@ namespace ImageProcessing.Services
 
             var outputStream = new MemoryStream();
 
-            switch (options.Format)
+            var quality = options.Quality ?? 90;
+
+            switch (options.Format?.ToLower())
             {
                 case "png":
                     await image.SaveAsPngAsync(outputStream);
                     break;
 
                 case "webp":
-                    await image.SaveAsWebpAsync(outputStream);
+                    var webpEncoder = new WebpEncoder
+                    {
+                        Quality = quality
+                    };
+                    await image.SaveAsWebpAsync(outputStream, webpEncoder);
                     break;
 
                 default:
-                    await image.SaveAsJpegAsync(outputStream);
+                    var jpegEncoder = new JpegEncoder
+                    {
+                        Quality = quality
+                    };
+                    await image.SaveAsJpegAsync(outputStream, jpegEncoder);
                     break;
             }
 
@@ -42,7 +55,23 @@ namespace ImageProcessing.Services
         {
             image.Mutate(ctx =>
             {
-                if (options.Width.HasValue || options.Height.HasValue)
+                if (options.Crop && options.Width.HasValue && options.Height.HasValue)
+                {
+                    var cropWidth = options.Width.Value;
+                    var cropHeight = options.Height.Value;
+
+                    if (cropWidth > image.Width || cropHeight > image.Height)
+                    {
+                        cropWidth = image.Width;
+                        cropHeight = image.Height;
+                    }
+
+                    var x = (image.Width - cropWidth) / 2;
+                    var y = (image.Height - cropHeight) / 2;
+
+                    ctx.Crop(new Rectangle(x, y, cropWidth, cropHeight));
+                }
+                else if (options.Width.HasValue || options.Height.HasValue)
                 {
                     ctx.Resize(options.Width ?? 0, options.Height ?? 0);
                 }
@@ -67,11 +96,11 @@ namespace ImageProcessing.Services
         public string GenerateCacheKey(Guid imageId, ImageTransformOptions options)
         {
             var rawKey =
-                $"{imageId}_{options.Width}_{options.Height}_{options.Rotate}_{options.Grayscale}_{options.Flip}_{options.Format}_{options.Quality}";
+                $"{imageId}_{options.Width}_{options.Height}_{options.Crop}_{options.Rotate}_{options.Grayscale}_{options.Flip}_{options.Format}_{options.Quality}";
 
-            using var sha = System.Security.Cryptography.SHA256.Create();
+            using var sha = SHA256.Create();
 
-            var bytes = System.Text.Encoding.UTF8.GetBytes(rawKey);
+            var bytes = Encoding.UTF8.GetBytes(rawKey);
 
             var hash = sha.ComputeHash(bytes);
 
