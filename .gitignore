@@ -8,3 +8,4 @@
 /.vs
 *.user
 /appsettings.Development.json
+/Uploads/cache
