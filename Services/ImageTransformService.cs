@@ -1,5 +1,6 @@
 ﻿using global::ImageProcessing.DTOs;
 using ImageProcessing.DTOs;
+using ImageProcessing.Services.ImageProcessing;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Webp;
@@ -11,6 +12,13 @@ namespace ImageProcessing.Services
 {
     public class ImageTransformService : IImageTransformService
     {
+        private readonly IEnumerable<IImageProcessor> _processors;
+
+        public ImageTransformService(IEnumerable<IImageProcessor> processors)
+        {
+            _processors = processors;
+        }
+
         public async Task<Stream> TransformAsync(string filePath, ImageTransformOptions options)
         {
             using var imageStream = File.OpenRead(filePath);
@@ -53,44 +61,10 @@ namespace ImageProcessing.Services
 
         private void ApplyTransformations(Image image, ImageTransformOptions options)
         {
-            image.Mutate(ctx =>
+            foreach (var processor in _processors)
             {
-                if (options.Crop && options.Width.HasValue && options.Height.HasValue)
-                {
-                    var cropWidth = options.Width.Value;
-                    var cropHeight = options.Height.Value;
-
-                    if (cropWidth > image.Width || cropHeight > image.Height)
-                    {
-                        cropWidth = image.Width;
-                        cropHeight = image.Height;
-                    }
-
-                    var x = (image.Width - cropWidth) / 2;
-                    var y = (image.Height - cropHeight) / 2;
-
-                    ctx.Crop(new Rectangle(x, y, cropWidth, cropHeight));
-                }
-                else if (options.Width.HasValue || options.Height.HasValue)
-                {
-                    ctx.Resize(options.Width ?? 0, options.Height ?? 0);
-                }
-
-                if (options.Rotate.HasValue)
-                {
-                    ctx.Rotate(options.Rotate.Value);
-                }
-
-                if (options.Grayscale)
-                {
-                    ctx.Grayscale();
-                }
-
-                if (options.Flip)
-                {
-                    ctx.Flip(FlipMode.Vertical);
-                }
-            });
+                processor.Process(image, options);
+            }
         }
 
         public string GenerateCacheKey(Guid imageId, ImageTransformOptions options)

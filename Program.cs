@@ -1,10 +1,13 @@
+using Hangfire;
 using ImageProcessing.Data;
 using ImageProcessing.Services;
+using ImageProcessing.Services.ImageProcessing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,9 +87,23 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    ));
+
+builder.Services.AddHangfireServer();
+
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IImageTransformService, ImageTransformService>();
+
+builder.Services.AddScoped<IImageProcessor, CropProcessor>();
+builder.Services.AddScoped<IImageProcessor, ResizeProcessor>();
+builder.Services.AddScoped<IImageProcessor, RotateProcessor>();
+builder.Services.AddScoped<IImageProcessor, FlipProcessor>();
+builder.Services.AddScoped<IImageProcessor, GrayscaleProcessor>();
+builder.Services.AddScoped<ImageProcessingJob>();
 
 var app = builder.Build();
 
@@ -102,6 +119,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseHangfireDashboard("/hangfire");
 
 app.MapControllers();
 

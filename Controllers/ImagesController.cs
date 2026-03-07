@@ -1,4 +1,5 @@
-﻿using ImageProcessing.Data;
+﻿using Hangfire;
+using ImageProcessing.Data;
 using ImageProcessing.DTOs;
 using ImageProcessing.Entities;
 using ImageProcessing.Services;
@@ -268,14 +269,28 @@ namespace ImageProcessing.Controllers
 
             var stream = await _imageTransformService.TransformAsync(filePath, options);
 
-            using (var fileStream = new FileStream(cacheFilePath, FileMode.Create))
-            {
-                await stream.CopyToAsync(fileStream);
-            }
-
-            stream.Position = 0;
+            // queue background job to store cache
+            BackgroundJob.Enqueue<ImageProcessingJob>(
+                job => job.ProcessTransformJob(filePath, options, cacheFilePath)
+            );
 
             return File(stream, contentType);
+        }
+
+        [HttpGet("/api/jobs/{jobId}")]
+        public IActionResult GetJobStatus(string jobId)
+        {
+            var connection = JobStorage.Current.GetConnection();
+
+            var jobData = connection.GetJobData(jobId);
+
+            if (jobData == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                status = jobData.State
+            });
         }
 
         [HttpGet("capabilities")]
